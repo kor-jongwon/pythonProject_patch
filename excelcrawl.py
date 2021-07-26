@@ -6,27 +6,52 @@ from openpyxl import load_workbook
 class excelcrawl:
     def __init__(self):
         pass
-    @staticmethod
-    def search_subhotel_addr():
-        load_wb = load_workbook("/Users/choi/Desktop/datamapping/ht_영국_matched_2nd_5th_3rd.xlsx")
-        load_ws = load_wb['Sheet1']
-        wb = openpyxl.Workbook()
-        worksheet = wb.active
-        for i in range(2,300):
-            sub_hotel_addr = load_ws.cell(i,3).value
-        wb.close()
-        print(len(sub_hotel_addr))
-        return sub_hotel_addr
 
-    def search_hotels_name(self):
+    @staticmethod
+    def active_csv(row,data):
+        load_wb = load_workbook("/Users/choi/Desktop/datamapping/ht_영국_matched_2nd_5th_3rd.xlsx")
+        load_ws = load_wb['Sheet1']
+        datasheet= load_ws.cell(row=row,column=24)
+        datasheet.value = data
+        load_wb.save('/Users/choi/Desktop/datamapping/ht_영국_matched_2nd_5th_3rd.xlsx')
+
+    @staticmethod
+    def search_subhotel_name(i):
         load_wb = load_workbook("/Users/choi/Desktop/datamapping/ht_영국_matched_2nd_5th_3rd.xlsx")
         load_ws = load_wb['Sheet1']
         wb = openpyxl.Workbook()
         worksheet = wb.active
-        for i in range(2,300):
-            sub_hotel_addr = load_ws.cell(i,12).value
+        sub_hotel_name = load_ws.cell(i,2).value
         wb.close()
-        print(len(sub_hotel_addr))
+        return sub_hotel_name
+
+    @staticmethod
+    def search_subhotel_city(i):
+        load_wb = load_workbook("/Users/choi/Desktop/datamapping/ht_영국_matched_2nd_5th_3rd.xlsx")
+        load_ws = load_wb['Sheet1']
+        wb = openpyxl.Workbook()
+        worksheet = wb.active
+        sub_hotel_name = load_ws.cell(i, 8).value
+        wb.close()
+        return sub_hotel_name
+
+    @staticmethod
+    def search_hotels_name(i):
+        load_wb = load_workbook("/Users/choi/Desktop/datamapping/ht_영국_matched_2nd_5th_3rd.xlsx")
+        load_ws = load_wb['Sheet1']
+        wb = openpyxl.Workbook()
+        worksheet = wb.active
+        sub_hotel_addr = load_ws.cell(i,12).value
+        wb.close()
+        return sub_hotel_addr
+    @staticmethod
+    def search_hotels_city(i):
+        load_wb = load_workbook("/Users/choi/Desktop/datamapping/ht_영국_matched_2nd_5th_3rd.xlsx")
+        load_ws = load_wb['Sheet1']
+        wb = openpyxl.Workbook()
+        worksheet = wb.active
+        sub_hotel_addr = load_ws.cell(i,15).value
+        wb.close()
         return sub_hotel_addr
 
 

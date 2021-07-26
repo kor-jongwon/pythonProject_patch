@@ -1,87 +1,183 @@
+import concurrent
+import os
+import time
 import numpy as np
-import requests
-from selenium import webdriver
 import cv2
-import re
-#import excelcrawl
+import requests
+from excelcrawl import excelcrawl
+from threading import Timer
+from concurrent import futures
 from bs4 import BeautifulSoup
+from selenium import webdriver
+
 class crawl:
     def __init__(self):
         pass
 
-    def tripavisor(self): #tirpavisor에서 이미지 가져오기
-        html = self.driver.page_source
-        soup = BeautifulSoup(html, "html.parser")
-        images = soup.select('._1a4WY7aS.RcPVTgNb')
-        for image in images:
-            url = image['src']
+    def multi_thread(input_list):
+            url = input_list[2]['src']
             image_nparray = np.asarray(bytearray(requests.get(url).content), dtype=np.uint8)
-            image = cv2.imdecode(image_nparray, cv2.IMREAD_COLOR)
-            print(image.shape)
-            cv2.imshow('Image from url', image)
-            cv2.waitKey(5000)  # 이미지 가져오기 성공
+            crawl_image = cv2.imdecode(image_nparray, cv2.IMREAD_COLOR)
+            print('sub_hotel', crawl_image.shape)
+            cv2.imwrite('/Users/choi/Desktop/datamapping/sub_hotels/{}/{}.png'.format(input_list[0], input_list[1] + 1), crawl_image)
 
-    driver = webdriver.Chrome("/Users/choi/Downloads/chromedriver")
-    #addr =excelcrawl.excelcrawl.search_subhotel_addr()##엑셀파일 에서 가져와야함 배열 로 넣을떄 하나씩 넣을껏
-    addr = '3 Lisles Hill Road, Aughafatten   BT42 4LJ'
-    url = "https://www.google.com/" # 접속할 url
-    response = driver.get(url) # 접속 시도
-    element = driver.find_element_by_name('q') #q테그찾기
-    print(element)
-    element.send_keys(addr) #주소값 입력
-    element.submit() #검색
-    html = driver.page_source
-    soup = BeautifulSoup(html,"html.parser")
-    textline = soup.select('.VwiC3b.yXK7lf.MUxGbd.yDYNvb.lyLwlc')
-    text_arr = list()
+    def sub_hotel_crawl(ind):
+        for index_crawl in range(ind, 10000):
+            driver = webdriver.Chrome("/Users/choi/Downloads/chromedriver")
+            hotel_name =excelcrawl.search_subhotel_name(index_crawl)##엑셀파일 에서 가져와야함 배열 로 넣을떄 하나씩 넣을껏
+            hotel_city = excelcrawl.search_subhotel_city(index_crawl)
+            try:
+                os.mkdir('/Users/choi/Desktop/datamapping/sub_hotels/{}'.format(hotel_name))
+            except:
+                print("file was already : ", hotel_name)
+                driver.close()
+                crawl.sub_hotel_crawl(ind + 1)
+            print()
+            print("sub-hotels : ",ind," crawling...")
+            time.sleep(10)
+            url = "https://www.google.com/" # 접속할 url
+            driver.get(url) # 접속 시도
+            element = driver.find_element_by_name('q') #q테그찾기
+            element.send_keys(hotel_name) #주소값 입력
+            time.sleep(3)
+            element.submit() #검색
+            time.sleep(3)
+            html = driver.page_source
+            soup = BeautifulSoup(html,"html.parser")
+            hotel_url_div = soup.select('.yuRUbf') # 호텔 url가져옴 (span껴있음)
 
-    for text in textline: #검색한 단어와 같은 단어 추출
-        tag = text.find_all("em")
-        append_list = list()
-        for j in tag: #
-            append_list.append(j.string)
-        text_arr.append(append_list)
-    print(text_arr)
-    for i, text_arr_list in enumerate(text_arr): #각 홈페이지별로 em태그에 있는 값을 가져와 검색할려는 검색어와 비교
-        addr_replace = addr.replace(" ","")
-
-        print(addr_replace) #검색어의 빈칸을 없애기
-        for text_arr_list_element in text_arr_list:
-            text_arr_list_element = text_arr_list_element.replace(" ", "")
-            if text_arr_list_element in addr_replace:
-                print(str(i)+"true"+ text_arr_list_element)
-            else:
-                print("false"+text_arr_list_element)
-
-    #driver.close()
-    hotel_name = soup.select('.iUh30.Zu0yb.qLRx3b.tjvcx') # 호텔 url가져옴 (span껴있음)
-
-    hotel_arr = list()
-    for hotel_url in hotel_name:  #em 태그에서 걸러진 사이트를 중에 www.tripadvisor.com 홈페이지 주소 추출해서 맞으면 그사이트로 이동
-        hotel_url.span.decompose() #span태크 제거
-        # print(hotel_url.text)
-        if hotel_url.text == 'https://www.tripadvisor.com':
-            print(hotel_url.find('.yuRUbf')) #if 로 걸러진 사이트중에
+            for hotel_url in hotel_url_div:
+                for hotel_url_span in hotel_url:
+                    for i, hotel_url_cite in enumerate(hotel_url_span.cite):
+                        #hotel_url.span.decompose() #span태크 제거
+                        time.sleep(3)
+                        #print(hotel_url_cite)
+                        if hotel_url_cite == 'https://hotels.com' or hotel_url_cite == 'https://uk.hotels.com' or hotel_url_cite == 'https://kr.hotels.com':
+                            #index = i + 1
+                            #print(str(i) + "hotels")
+                            time.sleep(3)
+                            element_find_sub_hotel_url = hotel_url_span['href']
+                            driver.get(element_find_sub_hotel_url)
+                            time.sleep(5)
+                            html = driver.page_source
+                            soup = BeautifulSoup(html, "html.parser")
+                            images  = soup.select('._3vohxN._2kg-Bh')
+                            #print(images)
+                            try:
+                                with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
+                                    executor.map(crawl.multi_thread, [[hotel_name, i, image] for i, image in enumerate(images[:30])])
+                                driver.close()
+                                crawl.sub_hotel_crawl(ind + 1)
+                            except:
+                                print("there was no picture")
+                                crawl.sub_hotel_crawl(ind + 1)
 
 
-    #<em>테그에 있는 문자열 배열에 저장.
-    #엑셀에서 가져온 sub_hotel_addr과 em 테그안에 값을 비교하여 가장 높은 정확도가 높은 사이트에 들어갈 알고리즘 필요
 
-    for upperlist in text_arr:
-        for lowerlist in upperlist:
-            print(lowerlist)
-    links = soup.select('.yuRUbf')
-    link_arr = list()
-    for link in links:
-        print(link.select_one('.LC20lb.DKV0Md').text)  # 제목
-        print(link.a.attrs['href'])  # 링크
-        print()
-        link_arr.append(link.a.attrs['href'])
-        #높은 확률이 나온 링크매칭해서 그 링크로 들어감
+                        elif hotel_url_cite == 'https://www.tripadvisor.co.uk' or hotel_url_cite == 'https://www.tripadvisor.com':
+                            #print(str(i)+ "tripadvisor")
+                            try:
+                                print(hotel_url_span)
+                                element_find_sub_hotel_url = hotel_url_span['href']
+                            except KeyError:
+                                print("href error")
+                                driver.close()
+                                crawl.sub_hotel_crawl(ind)
 
-    #response = driver.get(link_arr[i])  ## /www.tripadvisor.com 에 해당 각 홈페이지에 테그 클래스 네임에 맞게 함수 필요
 
-    #3개사이트를 다 들어가서 확인하는게 아니라 3개중에 있는 사이트로 들어감
-    #홈페이지별로 필요 (booking, tripadvisor, ) booking(구현 필요)
+                            driver.get(element_find_sub_hotel_url)
+                            time.sleep(5)
+                            html = driver.page_source
+                            soup = BeautifulSoup(html, "html.parser")
+                            try:
+                                images = soup.select('._1a4WY7aS.RcPVTgNb')
+                            except:
+                                print("no such images")
+                                driver.close()
+                                crawl.sub_hotel_crawl(ind+1)
+                            #print(images)
+                                with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
+                                    executor.map(crawl.multi_thread, [[hotel_name,i,image] for i, image in enumerate(images[:30])])
+                                driver.close()
+                                crawl.sub_hotel_crawl(ind+1)
+
+
+
+                        elif hotel_url_cite == 'https://ar.trivago.com':
+                            time.sleep(3)
+                            #index = i + 1
+                            #print(str(i) + "ar.trivago")
+                            element_find_sub_hotel_url = hotel_url_span['href']
+                            driver.get(element_find_sub_hotel_url)
+                            html = driver.page_source
+                            soup = BeautifulSoup(html, "html.parser")
+                            time.sleep(3)
+                            try:
+                                element_input = driver.find_element_by_xpath('/html/body/div[2]/div[2]/div[3]/div/div[1]/div[2]/form/div/div[1]/div/input')
+                            except:
+                                driver.close()
+                                crawl.sub_hotel_crawl(ind)
+                            element_input.click()
+                            html = driver.page_source
+                            soup = BeautifulSoup(html, "html.parser")
+                            lists = soup.select('.ssg-subtitle')
+                            #print(lists)
+                            for index, tab in enumerate(lists):
+                                tab.mark.decompose()
+                                tab_city = tab.text
+                                if tab_city.find(hotel_city) != -1:
+                                    hotel_index = index +1
+                                    #print("ffffff")
+                                    #print("tab_name : " + hotel_name, "tab_city : " + tab_city.text)
+
+                            time.sleep(2)
+                            try:
+                                driver_li = driver.find_element_by_xpath('/html/body/div[2]/div[2]/div[3]/div/div[1]/div[2]/form/div/div[1]/div/div/div/ul/li[{}]'.format(hotel_index))  # 리스트중 적합한 요소값을 가져옴
+                            except:
+                                print("no list in here " + str(index_crawl))
+                                driver.close()
+                                time.sleep(2)
+                                crawl.sub_hotel_crawl(ind + 1)
+                            time.sleep(2)  # nosearchelementerror로 인한 delay
+                            driver_li.click()  # 리스트중 가장 적합한 요소를 클릭
+                            time.sleep(3)
+                            html = driver.page_source
+                            soup = BeautifulSoup(html, "html.parser")
+                            hotel_name_list = soup.select(".item-link.name__copytext")
+                            for index, hotel_list in enumerate(hotel_name_list):
+                                for i, hotel in enumerate(hotel_list):
+                                    if hotel_name in hotel:
+                                        hotel_index = i +1
+                                        print("tab_name : " + hotel_name, "tab_city : " + tab_city)
+                            try:
+                                hotel_li = driver.find_element_by_xpath('/html/body/div[2]/main/div[1]/div[1]/div[3]/div/div[1]/div[2]/div[1]/div/section/ol/li[1]/div/article/div[{}]/div[2]/div/div/h3/span'.format(hotel_index))
+                            except:
+                                print("no list in here" + str(index_crawl))
+                                driver.close()
+                                time.sleep(2)
+                                crawl.sub_hotel_crawl(ind+1)
+                            hotel_li.click()
+                            images_buttton = driver.find_elements_by_class_name('tabs__label')
+                            print(images_buttton)
+
+                            driver.find_element_by_xpath('/html/body/div[2]/main/div[1]/div[1]/div[3]/div/div[1]/div[2]/div[1]/div/section/ol/li[1]/div/article/div[2]/div/div[1]/div/ul/li[3]/button')
+                            try:
+
+                                os.mkdir('/Users/choi/Desktop/datamapping/sub_hotels/{}'.format(hotel_name))
+                            except:
+                                print("file was already")
+                                driver.close()
+                                crawl.sub_hotel_crawl(ind +1)
+                            try:
+                                with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
+                                    executor.map(crawl.multi_thread,[[hotel_name, i, image] for i, image in enumerate(images[:30])])
+                                driver.close()
+                                crawl.sub_hotel_crawl(ind+1)
+                                    # cv2.destroyWindow(crawl_image) close image
+                            except:
+                                print("there was no picture")
+                                driver.close()
+                                crawl.sub_hotel_crawl(ind+1)
+
 
 
